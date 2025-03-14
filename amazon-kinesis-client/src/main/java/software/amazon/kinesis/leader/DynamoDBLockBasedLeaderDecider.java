@@ -15,7 +15,6 @@
 
 package software.amazon.kinesis.leader;
 
-import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -24,7 +23,6 @@ import com.amazonaws.services.dynamodbv2.AcquireLockOptions;
 import com.amazonaws.services.dynamodbv2.AmazonDynamoDBLockClient;
 import com.amazonaws.services.dynamodbv2.LockItem;
 import com.amazonaws.services.dynamodbv2.model.LockCurrentlyUnavailableException;
-import com.google.common.annotations.VisibleForTesting;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import software.amazon.awssdk.services.cloudwatch.model.StandardUnit;
@@ -46,12 +44,6 @@ import static software.amazon.kinesis.coordinator.CoordinatorState.LEADER_HASH_K
 @Slf4j
 @KinesisClientInternalApi
 public class DynamoDBLockBasedLeaderDecider implements LeaderDecider {
-    private static final Long DEFAULT_LEASE_DURATION_MILLIS =
-            Duration.ofMinutes(2).toMillis();
-    // Heartbeat frequency should be at-least 3 times smaller the lease duration according to LockClient documentation
-    private static final Long DEFAULT_HEARTBEAT_PERIOD_MILLIS =
-            Duration.ofSeconds(30).toMillis();
-
     private final CoordinatorStateDAO coordinatorStateDao;
     private final AmazonDynamoDBLockClient dynamoDBLockClient;
     private final Long heartbeatPeriodMillis;
@@ -62,8 +54,17 @@ public class DynamoDBLockBasedLeaderDecider implements LeaderDecider {
     private boolean lastIsLeaderResult = false;
     private final AtomicBoolean isShutdown = new AtomicBoolean(false);
 
-    @VisibleForTesting
-    static DynamoDBLockBasedLeaderDecider create(
+    /**
+     * Creates a DynamoDBLockBasedLeaderDecider with custom lease duration and heartbeat period.
+     *
+     * @param coordinatorStateDao The DAO for coordinator state
+     * @param workerId The ID of the worker
+     * @param leaseDuration Duration in milliseconds for how long a leader lock is considered valid
+     * @param heartbeatPeriod Period in milliseconds between leader lock heartbeats
+     * @param metricsFactory Factory for creating metrics
+     * @return A new DynamoDBLockBasedLeaderDecider instance
+     */
+    public static DynamoDBLockBasedLeaderDecider create(
             final CoordinatorStateDAO coordinatorStateDao,
             final String workerId,
             final Long leaseDuration,
@@ -80,16 +81,6 @@ public class DynamoDBLockBasedLeaderDecider implements LeaderDecider {
 
         return new DynamoDBLockBasedLeaderDecider(
                 coordinatorStateDao, dynamoDBLockClient, heartbeatPeriod, workerId, metricsFactory);
-    }
-
-    public static DynamoDBLockBasedLeaderDecider create(
-            final CoordinatorStateDAO coordinatorStateDao, final String workerId, final MetricsFactory metricsFactory) {
-        return create(
-                coordinatorStateDao,
-                workerId,
-                DEFAULT_LEASE_DURATION_MILLIS,
-                DEFAULT_HEARTBEAT_PERIOD_MILLIS,
-                metricsFactory);
     }
 
     @Override

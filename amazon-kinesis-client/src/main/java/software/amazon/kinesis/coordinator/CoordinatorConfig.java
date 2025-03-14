@@ -22,6 +22,8 @@ import software.amazon.kinesis.common.DdbTableConfig;
 import software.amazon.kinesis.leases.NoOpShardPrioritization;
 import software.amazon.kinesis.leases.ShardPrioritization;
 
+import java.time.Duration;
+
 /**
  * Used by the KCL to configure the coordinator.
  */
@@ -139,6 +141,23 @@ public class CoordinatorConfig {
      * compatible with prior versions.
      */
     private ClientVersionConfig clientVersionConfig = ClientVersionConfig.CLIENT_VERSION_CONFIG_3X;
+
+    /**
+     * Duration in milliseconds for how long a leader lock is considered valid.
+     * This is used by the DynamoDBLockBasedLeaderDecider.
+     *
+     * <p>Default value: 120000L (2 minutes)</p>
+     */
+    private long leaderLockDurationMillis = Duration.ofMinutes(2).toMillis();
+
+    /**
+     * Period in milliseconds between leader lock heartbeats.
+     * This is used by the DynamoDBLockBasedLeaderDecider.
+     * Note that the Heartbeat frequency should be at-least 3 times smaller the lease duration according to LockClient documentation
+     *
+     * <p>Default value: 30000L (30 seconds)</p>
+     */
+    private long leaderLockHeartbeatPeriodMillis = Duration.ofSeconds(30).toMillis();
 
     public static class CoordinatorStateTableConfig extends DdbTableConfig {
         private CoordinatorStateTableConfig(final String applicationName) {
